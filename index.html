@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="description" content="">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<meta name="author" content="Ahmed El Sheikh, 1873337" />
+		<title>Interactive Graphics HW 1</title>
+		<link rel="icon" type="image/x-icon" href="./logo.png">
+
+
+        <!-- Phong shading model shaders -->
+        <script id="phong-vShader" type="x-shader/x-vertex">
+            attribute vec4 vPosition;
+            uniform mat4 modelViewMatrix, projectionMatrix;
+			uniform vec4 lightPosition;
+
+            attribute vec4 vNormal;
+			varying vec3 N, L, E;
+
+
+            attribute  vec4 vColor;
+			attribute  vec2 vTexCoord;
+
+			varying vec4 fColor;
+			varying vec2 fTexCoord;
+
+			uniform vec3 theta;
+            void main(){
+                vec3 pos = -(modelViewMatrix * vPosition).xyz;
+				vec3 light = (modelViewMatrix * lightPosition).xyz;
+				L = normalize( light - pos );
+				E = normalize(-pos);
+				N = normalize( (modelViewMatrix*vNormal).xyz);
+
+                vec3 angles = radians( theta );
+                vec3 c = cos( angles );
+                vec3 s = sin( angles );
+                
+                mat4 rx = mat4( 1.0,  0.0,  0.0, 0.0,
+                        0.0,  c.x,  s.x, 0.0,
+                        0.0, -s.x,  c.x, 0.0,
+                        0.0,  0.0,  0.0, 1.0 );
+
+                mat4 ry = mat4( c.y, 0.0, -s.y, 0.0,
+                        0.0, 1.0,  0.0, 0.0,
+                        s.y, 0.0,  c.y, 0.0,
+                        0.0, 0.0,  0.0, 1.0 );
+
+
+                mat4 rz = mat4( c.z, s.z, 0.0, 0.0,
+                        -s.z,  c.z, 0.0, 0.0,
+                        0.0,  0.0, 1.0, 0.0,
+                        0.0,  0.0, 0.0, 1.0 );
+
+                fColor = vColor;
+				fTexCoord = vTexCoord;
+
+                // apply transformations to vPosition
+                gl_Position = projectionMatrix * modelViewMatrix * rz * ry * rx * vPosition;
+                gl_Position.z = gl_Position.z;
+            }
+        </script>
+        
+        <script id="phong-fShader" type="x-shader/x-fragment">
+            precision mediump float;
+			uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+			uniform float shininess;
+			varying vec3 N, L, E;
+
+            varying vec4 fColor;
+			varying  vec2 fTexCoord;
+            uniform sampler2D texture;
+
+            void main(){
+				vec4 fColor;
+				vec3 H = normalize( L + E );
+				vec4 ambient = ambientProduct;
+				float Kd = max( dot(L, N), 0.0 );
+				vec4 diffuse = Kd*diffuseProduct;
+				float Ks = pow( max(dot(N, H), 0.0), shininess );
+				vec4 specular = Ks * specularProduct;
+				if( dot(L, N) < 0.0 ) specular = vec4(0.0, 0.0, 0.0, 1.0);
+				fColor = ambient + diffuse +specular;
+                fColor.a = 1.0;
+                gl_FragColor = fColor * texture2D( texture, fTexCoord );
+            }
+        </script>
+
+        <!-- Gouraud shading model shaders -->
+        <script id="gouraud-vShader" type="x-shader/x-vertex">
+            attribute vec4 vPosition;
+            uniform mat4 modelViewMatrix, projectionMatrix;
+			attribute vec4 vNormal;
+
+            uniform vec4 lightPosition;
+			uniform float shininess;
+
+            uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+
+			attribute vec4 vColor;
+			attribute vec2 vTexCoord;
+			
+            varying vec4 fColor;
+            varying vec2 fTexCoord;
+
+            uniform vec3 theta;
+
+            void main(){
+                vec3 pos = -(modelViewMatrix * vPosition).xyz;
+				vec3 light = (modelViewMatrix * lightPosition).xyz;
+				vec3 L = normalize( light - pos );
+				vec3 E = normalize( -pos );
+				vec3 H = normalize( L + E );
+				// Transform vertex normal into eye coordinates
+				vec3 N = normalize( (modelViewMatrix*vNormal).xyz);
+				// Compute terms in the illumination equation
+				vec4 ambient = ambientProduct;
+				float Kd = max( dot(L, N), 0.0 );
+				vec4 diffuse = Kd*diffuseProduct;
+				float Ks = pow( max(dot(N, H), 0.0), shininess );
+				vec4 specular = Ks * specularProduct;
+				if( dot(L, N) < 0.0 ) specular = vec4(0.0, 0.0, 0.0, 1.0);
+
+                vec3 angles = radians( theta );
+                vec3 c = cos( angles );
+                vec3 s = sin( angles );
+
+                mat4 rx = mat4( 1.0,  0.0,  0.0, 0.0,
+                        0.0,  c.x,  s.x, 0.0,
+                        0.0, -s.x,  c.x, 0.0,
+                        0.0,  0.0,  0.0, 1.0 );
+
+                mat4 ry = mat4( c.y, 0.0, -s.y, 0.0,
+                        0.0, 1.0,  0.0, 0.0,
+                        s.y, 0.0,  c.y, 0.0,
+                        0.0, 0.0,  0.0, 1.0 );
+
+
+                mat4 rz = mat4( c.z, s.z, 0.0, 0.0,
+                        -s.z,  c.z, 0.0, 0.0,
+                        0.0,  0.0, 1.0, 0.0,
+                        0.0,  0.0, 0.0, 1.0 );
+
+                fColor = vColor;
+				fTexCoord = vTexCoord;
+
+                fColor = ambient + diffuse + specular;
+				fColor.a = 1.0;
+
+
+                gl_Position = projectionMatrix * modelViewMatrix * rz * ry * rx * vPosition;
+            }
+        </script>
+
+        <script id="gouraud-fShader" type="x-shader/x-fragment">
+			precision mediump float;
+
+			varying vec4 fColor;
+
+			varying  vec2 fTexCoord;
+			uniform sampler2D texture;
+
+			void main() {
+				gl_FragColor = fColor * texture2D( texture, fTexCoord );
+			}
+        </script>
+
+        <link rel="stylesheet" type="text/css" href="style.css">.
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+		<script type="text/javascript" src="./Common/webgl-utils.js"></script>
+		<script type="text/javascript" src="./Common/initShaders.js"></script>
+		<script type="text/javascript" src="./Common/MV.js"></script>
+		<script type="text/javascript" src="homework.js"></script>
+
+	</head>
+
+    <body onload="webGLStart()" style="background-image: linear-gradient(#d3d3d3, #00707f);">
+		<div class="container">
+		  <div class="row">
+			<div class="col-sm-3 col-md-3 col-lg-3">
+				<div class="col-sm col-lg">
+				<h6>Scaling:</h6>
+					<ul style="list-style: none; padding-inline-start: 35px;">
+						<li>
+							0 <input class="slider"  type="range" id="slide_scaling" type="range" min="0.01" max="1" step="0.01" value="1"/> 100
+						</li>
+					</ul>
+				</div>
+			</div>
+			
+			<div class="col-sm-3 col-md-3 col-lg-3">
+				<h6>Translating:</h6>
+				<div class="col-sm-12 col-md-12 col-lg-12">
+					<ul style="list-style: none; padding-inline-start: 35px;">
+						<li>
+							X: -1 <input class="slider" id="slide_translating_x" type="range" min="-1" max="1" step="0.01" value="0"/> 1
+						</li>
+						<li>
+							Y: -1 <input class="slider" id="slide_translating_y" type="range" min="-1" max="1" step="0.01" value="0"/> 1
+						</li>
+						<li>
+							Z: -1 <input class="slider" id="slide_translating_z" type="range" min="-1" max="1" step="0.01" value="0"/> 1
+						</li>
+					</ul>
+				</div>
+			</div>
+			
+			<div class="col-sm-3 col-md-3 col-lg-3"><h6>Sliding:</h6>
+				<ul style="list-style: none; padding-inline-start: 35px;">
+					<li>
+						r: 0.01 <input class="slider" id="slide_radius" type="range" min="0.01" max="10" step="0.01" value="3"/> 10
+					</li>
+					<li>
+						θ: -90 <input class="slider" id="slide_theta" type="range" min="-90" max="90" step="0.1" value="0"/> 90
+					</li>
+					<li>
+						ф: -90 <input class="slider" id="slide_phi" type="range" min="-90" max="90" step="0.1" value="0"/> 90
+					</li>
+				</ul>
+			</div>
+
+			<div class="col-sm-3 col-md-3 col-lg-3">
+			<h6>Sliding:</h6>
+				<ul style="list-style: none; padding-inline-start: 35px;">
+					<li>
+						Near: 0.01 <input class="slider" id="slide_near" type="range" min="0.01" max="3" step="0.03" value="1.1"/> 3
+					</li>
+					<li>
+						Far: 5 <input class="slider" id="slide_far" type="range" min="5" max="20" step="0.01" value="15"/> 20
+					</li>
+					<li>					
+						Fov: 10 <input class="slider" id="slide_fov" type="range" min="10" max="120" step="1" value="60"/> 120
+					</li>
+				</ul>
+			</div>
+		 </div>
+		<div class="row">
+			<div class="col-sm-3 col-md-3 col-lg-3">
+				<h6>Shading (from >> to):</h6>
+					<ul style="list-style: none;">
+						<li>
+							<button class="btn btn-primary" id="shadingButton">Shading mode</button>
+						</li>
+					</ul>
+	    		</div>
+				<div class="col-sm-3 col-md-3 col-lg-3">
+				<h6>Rotation:</h6>
+					<ul style="list-style: none;">
+						<li>
+							<button class="btn btn-primary" id="rotationBtn">Start/Stop</button>
+						</li>
+						<li style="padding-top:0.25em">
+							<button class="btn btn-primary" id="rotationX">X</button>
+							<button class="btn btn-primary" id="rotationY">Y</button>
+							<button class="btn btn-primary" id="rotationZ">Z</button>
+						</li>
+					</ul>
+	    		</div>
+				<div class="col-sm-3 col-md-3 col-lg-3">
+					<h6>Values:</h6>
+						<ul style="list-style: none;">
+							<li>
+								<button class="btn btn-primary" id="resetButton">Set Defaults</button>
+							</li>
+						</ul>
+	    		</div>
+				<div class="col-sm-3 col-md-3 col-lg-3">
+					<h6>Student Info:</h6>
+						<ul style="list-style: none;">
+							<li>
+								<p class="btn btn-secondary disabled" style="float:center;">Ahmed El Sheikh, 1873337</p>
+							</li>
+						</ul>
+	    		</div>
+
+
+			</div>
+		</div>
+		<hr/>
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-12 col-md-12 col-lg-12">
+					<canvas id="gl-canvas" width="1200" height="512">Browser doesn't support the HTML5 canvas element</canvas>
+				</div>
+			</div>
+		</div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+	</body>
